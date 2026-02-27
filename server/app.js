@@ -44,6 +44,14 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
+app.get("/", (_req, res) => {
+  res.json({
+    status: "ok",
+    message: "GameCloud backend is running",
+    health: "/api/health",
+  });
+});
+
 app.post("/api/auth/register", (req, res) => {
   const { username, email, password, role = "user" } = req.body;
   if (!username || !email || !password) {
