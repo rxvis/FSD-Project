@@ -38,4 +38,9 @@
     "tailwindcss": "^4.1.18",
     "vite": "^7.2.4"
   }
+
+  "scripts": {
+  "start": "node app.js",
+  "dev": "nodemon app.js"
+}
 }
