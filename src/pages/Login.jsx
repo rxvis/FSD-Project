@@ -1,24 +1,32 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Gamepad2, Shield, User, Briefcase } from 'lucide-react';
+import { Gamepad2 } from 'lucide-react';
 
 const LoginPage = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('user'); // Default to 'user'
+    const [role, setRole] = useState('user');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        // in a real app, verify password here
-        login(role, username);
+        setError('');
+        setLoading(true);
+        try {
+            const loggedInUser = await login({ username, password });
 
-        // Redirect based on role
-        if (role === 'manager') navigate('/manager');
-        else if (role === 'employee') navigate('/employee');
-        else navigate('/dashboard');
+            if (loggedInUser.role === 'manager') navigate('/manager');
+            else if (loggedInUser.role === 'employee') navigate('/employee');
+            else navigate('/dashboard');
+        } catch (err) {
+            setError(err.message || 'Login failed');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -43,45 +51,6 @@ const LoginPage = () => {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-5">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Select Access Level</label>
-                        <div className="grid grid-cols-3 gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setRole('user')}
-                                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${role === 'user'
-                                    ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_10px_rgba(37,99,235,0.3)]'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-600'
-                                    }`}
-                            >
-                                <User size={20} className="mb-1" />
-                                <span className="text-[10px] font-bold uppercase mt-1">Gamer</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setRole('employee')}
-                                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${role === 'employee'
-                                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(147,51,234,0.3)]'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-600'
-                                    }`}
-                            >
-                                <Briefcase size={20} className="mb-1" />
-                                <span className="text-[10px] font-bold uppercase mt-1">Staff</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setRole('manager')}
-                                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${role === 'manager'
-                                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_10px_rgba(5,150,105,0.3)]'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-600'
-                                    }`}
-                            >
-                                <Shield size={20} className="mb-1" />
-                                <span className="text-[10px] font-bold uppercase mt-1">Admin</span>
-                            </button>
-                        </div>
-                    </div>
-
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="username" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -115,10 +84,12 @@ const LoginPage = () => {
 
                     <button
                         type="submit"
+                        disabled={loading}
                         className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase tracking-wide rounded-lg shadow-lg transform transition-all hover:-translate-y-0.5 hover:shadow-blue-600/25 active:scale-95 active:translate-y-0"
                     >
-                        Login to System
+                        {loading ? 'Signing In...' : 'Login to System'}
                     </button>
+                    {error && <p className="text-sm text-rose-400 text-center">{error}</p>}
                 </form>
 
                 <div className="mt-6 text-center text-xs text-slate-500">

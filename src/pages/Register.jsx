@@ -10,18 +10,32 @@ const RegisterPage = () => {
         password: '',
         confirmPassword: ''
     });
-    const { login } = useAuth();
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const { register } = useAuth();
     const navigate = useNavigate();
 
-    const handleRegister = (e) => {
+    const handleRegister = async (e) => {
         e.preventDefault();
+        setError('');
         if (formData.password !== formData.confirmPassword) {
-            alert("Passwords do not match!");
+            setError('Passwords do not match');
             return;
         }
-        // Simulate registration by logging in immediately
-        login('user', formData.username);
-        navigate('/dashboard');
+
+        setLoading(true);
+        try {
+            await register({
+                username: formData.username,
+                email: formData.email,
+                password: formData.password,
+            });
+            navigate('/dashboard');
+        } catch (err) {
+            setError(err.message || 'Registration failed');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -108,10 +122,12 @@ const RegisterPage = () => {
 
                     <button
                         type="submit"
+                        disabled={loading}
                         className="w-full py-3 px-4 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-lg shadow-lg transform transition-all hover:scale-[1.02] hover:shadow-blue-500/25 active:scale-95 flex items-center justify-center gap-2"
                     >
-                        Create Account <ArrowRight size={18} />
+                        {loading ? 'Creating...' : 'Create Account'} <ArrowRight size={18} />
                     </button>
+                    {error && <p className="text-sm text-rose-400">{error}</p>}
                 </form>
 
                 <div className="mt-6 text-center text-sm text-slate-500">

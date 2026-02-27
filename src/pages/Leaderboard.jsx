@@ -1,19 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Medal, Trophy, Crown } from 'lucide-react';
+import { apiRequest } from '../lib/api';
 
 const Leaderboard = () => {
     const [activeGame, setActiveGame] = useState('Global');
+    const [players, setPlayers] = useState([]);
+    const [error, setError] = useState('');
 
-    // Mock Global and Game-specific data
-    const players = [
-        { rank: 1, name: 'ProGamer_X', score: '24,500', game: 'Valorant', change: 'up' },
-        { rank: 2, name: 'NinjaStrike', score: '22,100', game: 'Apex Legends', change: 'same' },
-        { rank: 3, name: 'ShadowHunter', score: '21,850', game: 'CS:GO', change: 'down' },
-        { rank: 4, name: 'PixelQueen', score: '19,400', game: 'Valorant', change: 'up' },
-        { rank: 5, name: 'CyberWolf', score: '18,200', game: 'Global', change: 'same' },
-    ];
+    const games = ['Global', 'Valorant', 'CS:GO', 'Apex Legends', 'League of Legends', 'Overwatch 2'];
 
-    const games = ['Global', 'Valorant', 'CS:GO', 'Apex Legends'];
+    useEffect(() => {
+        const fetchLeaderboard = async () => {
+            try {
+                setError('');
+                const { players: entries } = await apiRequest(`/api/leaderboard?game=${encodeURIComponent(activeGame)}`);
+                setPlayers(entries);
+            } catch (err) {
+                setError(err.message || 'Failed to load leaderboard');
+            }
+        };
+        fetchLeaderboard();
+    }, [activeGame]);
 
     return (
         <div className="space-y-6">
@@ -44,6 +51,7 @@ const Leaderboard = () => {
                     <Trophy size={18} className="text-yellow-500" />
                     <span className="font-semibold text-slate-700">Top 100 Players</span>
                 </div>
+                {error && <p className="p-4 text-rose-600">{error}</p>}
 
                 <div className="divide-y divide-slate-100">
                     {players.map((player) => (

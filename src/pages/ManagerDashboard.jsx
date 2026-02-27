@@ -1,34 +1,123 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Users, Gamepad2, AlertTriangle, Activity, Search, Server, Shield, Database } from 'lucide-react';
+import { Users, Gamepad2, Activity, Search, Server, Shield, Database } from 'lucide-react';
+import { apiRequest } from '../lib/api';
 
 const ManagerDashboard = () => {
     const { user } = useAuth();
+    const [search, setSearch] = useState('');
+    const [roleDrafts, setRoleDrafts] = useState({});
+    const [actionError, setActionError] = useState('');
+    const [actionSuccess, setActionSuccess] = useState('');
 
-    // Mock System Stats
-    const stats = [
-        { label: 'Total Users', value: '1,234', icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-        { label: 'Active Games', value: '12', icon: Gamepad2, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-        { label: 'System Load', value: '42%', icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+    const [stats, setStats] = useState([
+        { label: 'Total Users', value: '0', icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+        { label: 'Active Games', value: '0', icon: Gamepad2, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+        { label: 'System Load', value: '0%', icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10' },
         { label: 'Security Alerts', value: '0', icon: Shield, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-    ];
-
-    // Mock User List
-    const [users, setUsers] = useState([
-        { id: 1, name: 'GamerOne', role: 'User', status: 'Active', login: '2 mins ago' },
-        { id: 2, name: 'EmployeeJohn', role: 'Employee', status: 'Active', login: '1 hour ago' },
-        { id: 3, name: 'BannedUser99', role: 'User', status: 'Banned', login: '30 days ago' },
-        { id: 4, name: 'ProSlayer', role: 'User', status: 'Active', login: 'Just now' },
-        { id: 5, name: 'TournamentAdmin', role: 'Employee', status: 'Active', login: '5 hours ago' },
     ]);
 
-    const toggleStatus = (id) => {
-        setUsers(users.map(u => {
-            if (u.id === id) {
-                return { ...u, status: u.status === 'Active' ? 'Banned' : 'Active' };
-            }
-            return u;
-        }));
+    const [users, setUsers] = useState([]);
+    const [managerFeed, setManagerFeed] = useState([]);
+    const [feedKind, setFeedKind] = useState('all');
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const [{ users: userItems }, { stats: systemStats }, { activities }] = await Promise.all([
+                apiRequest('/api/users'),
+                apiRequest('/api/stats/system'),
+                apiRequest('/api/feed/manager?kind=all'),
+            ]);
+            setUsers(userItems);
+            setManagerFeed(activities || []);
+            const nextDrafts = {};
+            userItems.forEach((entry) => {
+                nextDrafts[entry.id] = String(entry.role).toLowerCase();
+            });
+            setRoleDrafts(nextDrafts);
+            setStats([
+                { label: 'Total Users', value: String(systemStats.totalUsers), icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                { label: 'Active Games', value: String(systemStats.activeGames), icon: Gamepad2, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+                { label: 'System Load', value: systemStats.systemLoad, icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                { label: 'Security Alerts', value: String(systemStats.securityAlerts), icon: Shield, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+            ]);
+        };
+        fetchData().catch(() => {
+            setUsers([]);
+        });
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchFeed = async () => {
+            const { activities } = await apiRequest(`/api/feed/manager?kind=${feedKind}`);
+            if (isMounted) setManagerFeed(activities || []);
+        };
+
+        void fetchFeed().catch(() => {
+            if (isMounted) setManagerFeed([]);
+        });
+
+        const intervalId = setInterval(() => {
+            void fetchFeed().catch(() => undefined);
+        }, 10000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, [feedKind]);
+
+    const filteredUsers = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) return users;
+        return users.filter((entry) => entry.name.toLowerCase().includes(query));
+    }, [users, search]);
+
+    const toggleStatus = async (id) => {
+        const current = users.find((entry) => entry.id === id);
+        if (!current) return;
+        const nextStatus = current.status === 'Active' ? 'Banned' : 'Active';
+
+        await apiRequest(`/api/users/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: nextStatus, actor: user?.username, actorRole: user?.role }),
+        });
+
+        setUsers(users.map(u => (u.id === id ? { ...u, status: nextStatus } : u)));
+    };
+
+    const applyRoleChange = async (id) => {
+        const selectedRole = roleDrafts[id];
+        if (!selectedRole) return;
+        setActionError('');
+        setActionSuccess('');
+
+        const isSelf = user?.id === id;
+        if (isSelf && selectedRole !== 'manager') {
+            setActionError('You cannot demote your own admin role.');
+            return;
+        }
+
+        try {
+            await apiRequest(`/api/users/${id}/role`, {
+                method: 'PATCH',
+                body: JSON.stringify({ role: selectedRole, actor: user?.username, actorRole: user?.role }),
+            });
+
+            const normalizedLabel = selectedRole[0].toUpperCase() + selectedRole.slice(1);
+            setUsers(users.map((entry) => (
+                entry.id === id ? { ...entry, role: normalizedLabel } : entry
+            )));
+            setActionSuccess('Role updated successfully.');
+        } catch (err) {
+            setActionError(err.message || 'Failed to update role. Restart backend and try again.');
+        }
+    };
+
+    const formatFeedTime = (iso) => {
+        if (!iso) return '--:--:--';
+        return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     };
 
     return (
@@ -81,10 +170,22 @@ const ManagerDashboard = () => {
                             <input
                                 type="text"
                                 placeholder="SEARCH QUERY..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
                                 className="pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-700 rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none text-xs font-mono w-48 text-slate-300 placeholder-slate-600"
                             />
                         </div>
                     </div>
+                    {actionError && (
+                        <div className="px-6 py-3 text-sm text-rose-300 border-b border-rose-500/20 bg-rose-500/10">
+                            {actionError}
+                        </div>
+                    )}
+                    {actionSuccess && (
+                        <div className="px-6 py-3 text-sm text-emerald-300 border-b border-emerald-500/20 bg-emerald-500/10">
+                            {actionSuccess}
+                        </div>
+                    )}
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-slate-950 border-b border-slate-800">
@@ -93,20 +194,23 @@ const ManagerDashboard = () => {
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Access Level</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Last Active</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Status</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider font-mono text-right">Protocol</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider font-mono text-right">Controls</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/50">
-                                {users.map((u) => (
+                                {filteredUsers.map((u) => (
                                     <tr key={u.id} className="hover:bg-slate-800/30 transition-colors group">
                                         <td className="px-6 py-4 font-semibold text-slate-200">{u.name}</td>
                                         <td className="px-6 py-4 text-slate-400 text-sm">
-                                            <span className={`px-2 py-1 rounded text-xs font-medium border ${u.role === 'Manager' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                    u.role === 'Employee' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                                        'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                                }`}>
-                                                {u.role.toUpperCase()}
-                                            </span>
+                                            <select
+                                                value={roleDrafts[u.id] || String(u.role).toLowerCase()}
+                                                onChange={(e) => setRoleDrafts({ ...roleDrafts, [u.id]: e.target.value })}
+                                                className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs font-mono text-slate-300 focus:ring-1 focus:ring-emerald-500 outline-none"
+                                            >
+                                                <option value="user">USER</option>
+                                                <option value="employee">EMPLOYEE</option>
+                                                <option value="manager">MANAGER</option>
+                                            </select>
                                         </td>
                                         <td className="px-6 py-4 text-slate-500 text-xs font-mono">{u.login}</td>
                                         <td className="px-6 py-4">
@@ -118,7 +222,13 @@ const ManagerDashboard = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
-                                                onClick={() => toggleStatus(u.id)}
+                                                onClick={() => void applyRoleChange(u.id)}
+                                                className="text-xs font-bold px-3 py-1.5 rounded text-emerald-300 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 mr-2"
+                                            >
+                                                APPLY ROLE
+                                            </button>
+                                            <button
+                                                onClick={() => void toggleStatus(u.id)}
                                                 className={`text-xs font-bold px-3 py-1.5 rounded transition-all ${u.status === 'Active'
                                                         ? 'text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30'
                                                         : 'text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30'
@@ -136,30 +246,44 @@ const ManagerDashboard = () => {
 
                 {/* System Logs */}
                 <div className="bg-slate-900/80 rounded-xl border border-slate-800 shadow-2xl p-6">
-                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                         <Activity size={16} /> Live Feed
-                    </h3>
+                        </h3>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setFeedKind('all')}
+                                className={`text-[10px] px-2 py-1 rounded border ${feedKind === 'all' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-400 border-slate-700'}`}
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => setFeedKind('security')}
+                                className={`text-[10px] px-2 py-1 rounded border ${feedKind === 'security' ? 'text-rose-300 border-rose-500/30 bg-rose-500/10' : 'text-slate-400 border-slate-700'}`}
+                            >
+                                Security
+                            </button>
+                            <button
+                                onClick={() => setFeedKind('staff')}
+                                className={`text-[10px] px-2 py-1 rounded border ${feedKind === 'staff' ? 'text-blue-300 border-blue-500/30 bg-blue-500/10' : 'text-slate-400 border-slate-700'}`}
+                            >
+                                Staff
+                            </button>
+                        </div>
+                    </div>
                     <div className="space-y-4 font-mono text-xs">
-                        <div className="flex gap-3 text-slate-300">
-                            <span className="text-slate-600">[22:45:01]</span>
-                            <span>System backup completed successfully.</span>
-                        </div>
-                        <div className="flex gap-3 text-emerald-400">
-                            <span className="text-slate-600">[22:42:15]</span>
-                            <span>User "ProSlayer" uploaded new achievement proof.</span>
-                        </div>
-                        <div className="flex gap-3 text-slate-300">
-                            <span className="text-slate-600">[22:40:00]</span>
-                            <span>Tournament "Winter Cup" registration opened.</span>
-                        </div>
-                        <div className="flex gap-3 text-rose-400">
-                            <span className="text-slate-600">[22:15:22]</span>
-                            <span>Failed login attempt detected from IP 192.168.1.X.</span>
-                        </div>
-                        <div className="flex gap-3 text-blue-400">
-                            <span className="text-slate-600">[22:10:05]</span>
-                            <span>New generic leaderboard calculation finished.</span>
-                        </div>
+                        {managerFeed.length === 0 && (
+                            <div className="text-slate-500">No feed events yet.</div>
+                        )}
+                        {managerFeed.map((entry) => (
+                            <div
+                                key={entry.id}
+                                className={`flex gap-3 ${entry.severity === 'warn' ? 'text-rose-400' : entry.scope === 'staff_management' ? 'text-emerald-400' : 'text-slate-300'}`}
+                            >
+                                <span className="text-slate-600">[{formatFeedTime(entry.createdAt)}]</span>
+                                <span>{entry.message}</span>
+                            </div>
+                        ))}
                     </div>
                     <div className="mt-6 pt-4 border-t border-slate-800">
                         <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">

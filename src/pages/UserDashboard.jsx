@@ -1,26 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Trophy, Upload, PlusCircle, Star, Activity, Medal, Crosshair, Users, Calendar, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { apiRequest } from '../lib/api';
 
 const UserDashboard = () => {
     const { user } = useAuth();
     const [timeRange, setTimeRange] = useState('All Time');
+    const [recentScores, setRecentScores] = useState([]);
 
-    // Mock Data
-    const stats = [
+    useEffect(() => {
+        const fetchScores = async () => {
+            if (!user?.id) return;
+            const { scores } = await apiRequest(`/api/scores?userId=${user.id}`);
+            setRecentScores(scores.slice(0, 5));
+        };
+
+        fetchScores().catch(() => {
+            setRecentScores([]);
+        });
+    }, [user?.id]);
+
+    const stats = useMemo(() => ([
         { label: 'Skill Rating', value: '2,450', sub: 'Top 5%', icon: Star, color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
         { label: 'Tournaments Won', value: '8', sub: '12 Played', icon: Trophy, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
         { label: 'Global Rank', value: '#42', sub: '+3 this week', icon: Medal, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
         { label: 'K/D Ratio', value: '1.85', sub: 'Avg 24 Kills', icon: Crosshair, color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
-    ];
-
-    const recentScores = [
-        { game: 'Valorant', score: '240', date: '2023-10-15', status: 'Verified', mode: 'Ranked' },
-        { game: 'Apex Legends', score: '3800 dmg', date: '2023-10-12', status: 'Pending', mode: 'Tournament' },
-        { game: 'CS:GO', score: '16-14', date: '2023-10-10', status: 'Verified', mode: 'Scrim' },
-        { game: 'Overwatch 2', score: '45 Elim', date: '2023-10-09', status: 'Verified', mode: 'Ranked' },
-    ];
+    ]), []);
 
     const upcomingEvents = [
         { title: 'Winter Championship', game: 'Valorant', date: 'Tomorrow, 18:00', type: 'Finals' },
@@ -135,9 +141,9 @@ const UserDashboard = () => {
                                     {recentScores.map((score, idx) => (
                                         <tr key={idx} className="hover:bg-slate-800/30 transition-colors group">
                                             <td className="px-6 py-4 font-bold text-white">{score.game}</td>
-                                            <td className="px-6 py-4 text-slate-400">{score.mode}</td>
+                                            <td className="px-6 py-4 text-slate-400">{score.mode || 'Ranked'}</td>
                                             <td className="px-6 py-4 text-emerald-400 font-mono">{score.score}</td>
-                                            <td className="px-6 py-4 text-slate-500">{score.date}</td>
+                                            <td className="px-6 py-4 text-slate-500">{new Date(score.date).toLocaleDateString()}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${score.status === 'Verified' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                                                     }`}>

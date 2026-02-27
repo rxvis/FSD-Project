@@ -1,16 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { apiRequest } from '../lib/api';
 
 const ScoreEntry = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [formData, setFormData] = useState({ game: '', score: '', date: '' });
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Simulate API call
-        console.log('Submitted', formData);
-        navigate('/dashboard');
+        if (!user?.id) return;
+
+        try {
+            setError('');
+            setLoading(true);
+            await apiRequest('/api/scores', {
+                method: 'POST',
+                body: JSON.stringify({
+                    userId: user.id,
+                    ...formData,
+                }),
+            });
+            navigate('/dashboard');
+        } catch (err) {
+            setError(err.message || 'Failed to save score');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -68,11 +88,13 @@ const ScoreEntry = () => {
                     <div className="pt-4">
                         <button
                             type="submit"
+                            disabled={loading}
                             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all flex items-center justify-center gap-2"
                         >
                             <Save size={18} />
-                            Save Score
+                            {loading ? 'Saving...' : 'Save Score'}
                         </button>
+                        {error && <p className="text-sm text-rose-500 mt-2">{error}</p>}
                     </div>
                 </form>
             </div>

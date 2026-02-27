@@ -1,24 +1,70 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UploadCloud, ArrowLeft, FileText, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { apiRequest } from '../lib/api';
 
 const AchievementUpload = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [file, setFile] = useState(null);
     const [description, setDescription] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+    const toDataUrl = (fileToConvert) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read selected file'));
+        reader.readAsDataURL(fileToConvert);
+    });
+
+    const validateAndSetFile = (selectedFile) => {
+        if (!selectedFile) return;
+        if (!selectedFile.type.startsWith('image/')) {
+            setError('Only image files are supported for proof upload.');
+            return;
+        }
+        if (selectedFile.size > MAX_FILE_SIZE) {
+            setError('File is too large. Maximum allowed size is 10MB.');
+            return;
+        }
+        setError('');
+        setFile(selectedFile);
+    };
 
     const handleDrop = (e) => {
         e.preventDefault();
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            setFile(e.dataTransfer.files[0]);
+            validateAndSetFile(e.dataTransfer.files[0]);
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Simulate Upload
-        console.log('Uploading', file);
-        navigate('/dashboard');
+        if (!user?.id || !file) return;
+
+        try {
+            setError('');
+            setLoading(true);
+            const proofDataUrl = await toDataUrl(file);
+            await apiRequest('/api/achievements', {
+                method: 'POST',
+                body: JSON.stringify({
+                    userId: user.id,
+                    title: file.name,
+                    description,
+                    proofFileName: file.name,
+                    proofDataUrl,
+                }),
+            });
+            navigate('/proof-submissions');
+        } catch (err) {
+            setError(err.message || 'Upload failed');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -42,8 +88,9 @@ const AchievementUpload = () => {
                         <input
                             id="file-upload"
                             type="file"
+                            accept="image/*"
                             className="hidden"
-                            onChange={(e) => setFile(e.target.files[0])}
+                            onChange={(e) => validateAndSetFile(e.target.files[0])}
                         />
 
                         {file ? (
@@ -80,12 +127,13 @@ const AchievementUpload = () => {
 
                     <button
                         type="submit"
-                        disabled={!file}
+                        disabled={!file || loading}
                         className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-md transition-all flex items-center justify-center gap-2"
                     >
                         <UploadCloud size={18} />
-                        Submit for Verification
+                        {loading ? 'Submitting...' : 'Submit for Verification'}
                     </button>
+                    {error && <p className="text-sm text-rose-500">{error}</p>}
                 </form>
             </div>
         </div>

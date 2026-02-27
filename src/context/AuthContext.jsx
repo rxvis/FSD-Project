@@ -1,20 +1,37 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState } from 'react';
+import { apiRequest } from '../lib/api';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-    // Try to load user from localStorage
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem('gaming_platform_user');
         return savedUser ? JSON.parse(savedUser) : null;
     });
 
-    const login = (role, username) => {
-        const newUser = { role, username, id: Date.now().toString() };
-        setUser(newUser);
-        localStorage.setItem('gaming_platform_user', JSON.stringify(newUser));
+    const login = async ({ role, username, password }) => {
+        const { user: backendUser } = await apiRequest('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ role, username, password }),
+        });
+
+        setUser(backendUser);
+        localStorage.setItem('gaming_platform_user', JSON.stringify(backendUser));
+        return backendUser;
+    };
+
+    const register = async ({ username, email, password }) => {
+        const { user: backendUser } = await apiRequest('/api/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ username, email, password }),
+        });
+
+        setUser(backendUser);
+        localStorage.setItem('gaming_platform_user', JSON.stringify(backendUser));
+        return backendUser;
     };
 
     const logout = () => {
@@ -23,7 +40,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, login, register, logout }}>
             {children}
         </AuthContext.Provider>
     );

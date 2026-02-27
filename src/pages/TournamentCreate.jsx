@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, ArrowLeft, Users, Calendar } from 'lucide-react';
+import { apiRequest } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 const TournamentCreate = () => {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         name: '',
@@ -11,11 +14,28 @@ const TournamentCreate = () => {
         maxPlayers: '',
         startDate: ''
     });
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Tournament Created', formData);
-        navigate('/employee');
+        try {
+            setError('');
+            setLoading(true);
+            await apiRequest('/api/tournaments', {
+                method: 'POST',
+                body: JSON.stringify({
+                    ...formData,
+                    actor: user?.username || 'staff',
+                    actorRole: user?.role || 'employee',
+                }),
+            });
+            navigate('/employee');
+        } catch (err) {
+            setError(err.message || 'Failed to create tournament');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -102,10 +122,12 @@ const TournamentCreate = () => {
                     <div className="md:col-span-2 pt-4">
                         <button
                             type="submit"
+                            disabled={loading}
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-all"
                         >
-                            Create Tournament
+                            {loading ? 'Creating...' : 'Create Tournament'}
                         </button>
+                        {error && <p className="text-sm text-rose-500 mt-2">{error}</p>}
                     </div>
                 </form>
             </div>

@@ -1,6 +1,6 @@
 import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, LayoutDashboard, Trophy, Shield } from 'lucide-react';
+import { LogOut, Trophy } from 'lucide-react';
 
 const AppLayout = () => {
     const { user, logout } = useAuth();
@@ -14,6 +14,26 @@ const AppLayout = () => {
     // Enable dark/professional theme for both Manager and User (Gamer) roles
     const isProTheme = user?.role === 'manager' || user?.role === 'user';
     const isManager = user?.role === 'manager';
+    const isEmployee = user?.role === 'employee';
+
+    const navLinks = isManager
+        ? [
+            { to: '/manager', label: 'Command Center' },
+            { to: '/leaderboard', label: 'Rank Intel' },
+            { to: '/tournaments', label: 'Tournament Ops' },
+        ]
+        : isEmployee
+            ? [
+                { to: '/employee', label: 'Operator Desk' },
+                { to: '/create-tournament', label: 'Create Bracket' },
+                { to: '/tournaments', label: 'All Tournaments' },
+            ]
+            : [
+                { to: '/dashboard', label: 'Dashboard' },
+                { to: '/leaderboard', label: 'Leaderboard' },
+                { to: '/tournaments', label: 'Tournaments' },
+                { to: '/achievements', label: 'Achievements' },
+            ];
 
     return (
         <div className={`min-h-screen flex flex-col transition-colors duration-300 ${isProTheme ? 'bg-[#0a0a0c] text-white' : 'bg-slate-50'}`}>
@@ -30,8 +50,21 @@ const AppLayout = () => {
 
                         {/* Navigation Links */}
                         <nav className="hidden md:flex items-center gap-1">
-                            <Link to="/leaderboard" className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${isProTheme ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-blue-600 hover:bg-slate-50'}`}>Leaderboard</Link>
-                            <Link to="/tournaments" className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${isProTheme ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-blue-600 hover:bg-slate-50'}`}>Tournaments</Link>
+                            {navLinks.map((item) => (
+                                <Link
+                                    key={item.to}
+                                    to={item.to}
+                                    className={`px-3 py-2 rounded-md transition-colors ${
+                                        isManager
+                                            ? 'font-mono text-xs uppercase tracking-wider border border-emerald-500/20 text-emerald-300 hover:text-emerald-100 hover:bg-emerald-500/10'
+                                            : isProTheme
+                                                ? 'text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800'
+                                                : 'text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {item.label}
+                                </Link>
+                            ))}
                         </nav>
                     </div>
 
