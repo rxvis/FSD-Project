@@ -6,6 +6,14 @@ import { sendError } from "./utils/http.js";
 const app = express();
 ensureSeedData();
 app.use(express.json({ limit: "15mb" }));
+app.use((req, res, next) => {
+  const allowedOrigin = process.env.CORS_ORIGIN || "*";
+  res.header("Access-Control-Allow-Origin", allowedOrigin);
+  res.header("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  return next();
+});
 const MAX_ACTIVITY_COUNT = 500;
 
 const toPublicUser = (user) => ({

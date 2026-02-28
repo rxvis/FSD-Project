@@ -16,9 +16,3 @@ mongoose
   .catch((err) => {
     console.log(err);
   });
-
-mongoose.connect(process.env.MONGO_URI)
-
-app.get("/", (req, res) => {
-  res.send("Backend is running 🚀")
-});
