@@ -255,6 +255,36 @@
       "actor": "rxvis",
       "severity": "info",
       "createdAt": "2026-02-26T13:43:41.356Z"
+    },
+    {
+      "id": "6b0f88eb-bff7-46f7-9aa5-ef102bbd3c3b",
+      "scope": "gamer",
+      "type": "user_login",
+      "message": "User \"rxvis\" logged in.",
+      "actorRole": "user",
+      "actor": "rxvis",
+      "severity": "info",
+      "createdAt": "2026-02-28T14:53:47.527Z"
+    },
+    {
+      "id": "5473bab4-a8e6-41ae-b8e0-14212a7ca5f5",
+      "scope": "gamer",
+      "type": "user_login",
+      "message": "User \"rxvis\" logged in.",
+      "actorRole": "user",
+      "actor": "rxvis",
+      "severity": "info",
+      "createdAt": "2026-03-01T07:41:47.542Z"
+    },
+    {
+      "id": "adbc523c-043d-4f43-91bd-295d10d14802",
+      "scope": "security",
+      "type": "unauthorized_staff_login",
+      "message": "Unauthorized staff login attempt for \"admin\" (invalid credentials).",
+      "actorRole": "manager",
+      "actor": "admin",
+      "severity": "warn",
+      "createdAt": "2026-03-01T07:44:01.063Z"
     }
   ]
 }

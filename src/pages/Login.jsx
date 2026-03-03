@@ -33,7 +33,6 @@ const LoginPage = () => {
         <div className="min-h-screen flex items-center justify-center bg-[#0a0a0c] text-white relative overflow-hidden font-sans">
             {/* Background decoration */}
             <div className="absolute inset-0 z-0">
-                <div className="absolute top-0 left-0 w-full h-full bg-[url('https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')] bg-cover bg-center opacity-10"></div>
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-[#0a0a0c]/90 to-transparent"></div>
             </div>
 
